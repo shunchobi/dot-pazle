@@ -16,6 +16,13 @@ export class Game {
 
         this.canvas.addEventListener('click', this.handleClick.bind(this));
 
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (this.image.complete) {
+                this.resizeCanvas();
+            }
+        });
+
         // Handle image load
         this.image.onload = () => {
             this.resizeCanvas();
@@ -49,11 +56,29 @@ export class Game {
     }
 
     resizeCanvas() {
-        // Fit canvas to image or simple max width
-        // For simplicity, match image natural size or limit to window
-        // Let's stick to natural size for now to map coordinates 1:1 easily
-        this.canvas.width = this.image.naturalWidth;
-        this.canvas.height = this.image.naturalHeight;
+        // Fit canvas to screen while maintaining aspect ratio
+        const maxWidth = Math.min(800, window.innerWidth - 40); // Leave some margin
+        const maxHeight = window.innerHeight - 250; // Leave space for header and controls
+
+        const imageWidth = this.image.naturalWidth;
+        const imageHeight = this.image.naturalHeight;
+        const imageAspect = imageWidth / imageHeight;
+
+        let displayWidth = maxWidth;
+        let displayHeight = maxWidth / imageAspect;
+
+        // If height is too tall, scale based on height instead
+        if (displayHeight > maxHeight) {
+            displayHeight = maxHeight;
+            displayWidth = maxHeight * imageAspect;
+        }
+
+        // Set canvas display size
+        this.canvas.width = imageWidth;
+        this.canvas.height = imageHeight;
+        this.canvas.style.width = displayWidth + 'px';
+        this.canvas.style.height = displayHeight + 'px';
+
         this.draw();
     }
 
