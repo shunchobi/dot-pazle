@@ -1,13 +1,43 @@
 <!DOCTYPE html>
-<html lang="">
-  <head>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+    <title>Dot-to-Dot Puzzle</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Dot-to-Dot</h1>
+            <div class="controls">
+                <select id="level-select">
+                    <option value="">Select a Level</option>
+                    <!-- Options populated by JS -->
+                </select>
+                <button id="reset-btn">Reset</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="canvas-container">
+                <canvas id="game-canvas"></canvas>
+                <div id="completion-overlay" class="hidden">
+                    <h2>Puzzle Complete!</h2>
+                    <button id="next-level-btn">Next Level</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Tool for developers/users to map dots -->
+        <div id="creator-tools">
+            <label>
+                <input type="checkbox" id="creator-mode"> Creator Mode (Click to record dots)
+            </label>
+            <textarea id="output-data" readonly placeholder="Coordinates will appear here..."></textarea>
+            <button id="copy-data-btn">Copy to Clipboard</button>
+        </div>
+    </div>
+    <script type="module" src="src/main.js"></script>
+</body>
 </html>
