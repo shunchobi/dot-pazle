@@ -162,6 +162,23 @@ export class Game {
                 this.ctx.fillText(dot.id, dot.x + 5, dot.y - 5);
                 this.ctx.fillStyle = 'red';
             });
+        } else if (!this.isCompleted && this.dots.length > 0) {
+            // In game mode, show a subtle highlight for the next dot to click
+            const nextDotIndex = this.connectedDots.length;
+            if (nextDotIndex < this.dots.length) {
+                const nextDot = this.dots[nextDotIndex];
+                this.ctx.strokeStyle = 'rgba(255, 200, 0, 0.6)';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(nextDot.x, nextDot.y, 25, 0, Math.PI * 2);
+                this.ctx.stroke();
+
+                // Pulse effect (optional, commented out for now)
+                // this.ctx.strokeStyle = 'rgba(255, 200, 0, 0.3)';
+                // this.ctx.beginPath();
+                // this.ctx.arc(nextDot.x, nextDot.y, 30, 0, Math.PI * 2);
+                // this.ctx.stroke();
+            }
         }
     }
 }
