@@ -18,11 +18,17 @@ export class Game {
         this.recordedDots = [];
         this.onDotsRecorded = null; // Callback for UI
 
-        // Add event listeners for freehand drawing
+        // Add event listeners for freehand drawing (mouse)
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
         this.canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+
+        // Add event listeners for freehand drawing (touch)
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
 
         // Keep click handler for creator mode
         this.canvas.addEventListener('click', this.handleClick.bind(this));
@@ -114,14 +120,17 @@ export class Game {
 
     handleMouseDown(e) {
         if (this.isCreatorMode || this.isCompleted) return;
+        e.preventDefault();
 
         const pos = this.getMousePos(e);
         this.isDrawing = true;
         this.drawnPath = [pos];
+        console.log('Mouse down at:', pos);
     }
 
     handleMouseMove(e) {
         if (!this.isDrawing || this.isCreatorMode || this.isCompleted) return;
+        e.preventDefault();
 
         const pos = this.getMousePos(e);
         this.drawnPath.push(pos);
@@ -135,6 +144,47 @@ export class Game {
     handleMouseUp(e) {
         if (!this.isDrawing) return;
         this.isDrawing = false;
+        console.log('Mouse up, drawn path length:', this.drawnPath.length);
+    }
+
+    handleTouchStart(e) {
+        if (this.isCreatorMode || this.isCompleted) return;
+        e.preventDefault();
+
+        const touch = e.touches[0];
+        const pos = this.getTouchPos(touch);
+        this.isDrawing = true;
+        this.drawnPath = [pos];
+        console.log('Touch start at:', pos);
+    }
+
+    handleTouchMove(e) {
+        if (!this.isDrawing || this.isCreatorMode || this.isCompleted) return;
+        e.preventDefault();
+
+        const touch = e.touches[0];
+        const pos = this.getTouchPos(touch);
+        this.drawnPath.push(pos);
+
+        // Check if we've passed through the next dot
+        this.checkDotProximity(pos);
+
+        this.draw();
+    }
+
+    handleTouchEnd(e) {
+        if (!this.isDrawing) return;
+        e.preventDefault();
+        this.isDrawing = false;
+        console.log('Touch end, drawn path length:', this.drawnPath.length);
+    }
+
+    getTouchPos(touch) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: (touch.clientX - rect.left) * (this.canvas.width / rect.width),
+            y: (touch.clientY - rect.top) * (this.canvas.height / rect.height)
+        };
     }
 
     checkDotProximity(pos) {

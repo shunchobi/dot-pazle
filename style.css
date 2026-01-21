@@ -67,7 +67,9 @@ button:hover {
 
 canvas {
     display: block;
-    /* Cursor depends on mode, handled in JS */
+    cursor: crosshair;
+    touch-action: none; /* Disable default touch behaviors */
+    user-select: none; /* Prevent text selection while drawing */
 }
 
 #completion-overlay {
