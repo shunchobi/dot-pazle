@@ -9,11 +9,22 @@ export class Game {
         this.scale = 1;
         this.isCompleted = false;
 
+        // Drawing state for freehand mode
+        this.isDrawing = false;
+        this.drawnPath = []; // Array of {x, y} points of the user's drawn line
+
         // Creator Mode State
         this.isCreatorMode = false;
         this.recordedDots = [];
         this.onDotsRecorded = null; // Callback for UI
 
+        // Add event listeners for freehand drawing
+        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+
+        // Keep click handler for creator mode
         this.canvas.addEventListener('click', this.handleClick.bind(this));
 
         // Handle window resize
@@ -41,6 +52,8 @@ export class Game {
         this.connectedDots = [];
         this.isCompleted = false;
         this.recordedDots = [];
+        this.drawnPath = [];
+        this.isDrawing = false;
         document.getElementById('completion-overlay').classList.add('hidden');
         if (this.isCreatorMode) {
             // In creator mode, start with empty or existing dots to extend?
@@ -95,8 +108,52 @@ export class Game {
 
         if (this.isCreatorMode) {
             this.handleCreatorClick(pos);
-        } else {
-            this.handleGameClick(pos);
+        }
+        // Game mode now uses freehand drawing, not click
+    }
+
+    handleMouseDown(e) {
+        if (this.isCreatorMode || this.isCompleted) return;
+
+        const pos = this.getMousePos(e);
+        this.isDrawing = true;
+        this.drawnPath = [pos];
+    }
+
+    handleMouseMove(e) {
+        if (!this.isDrawing || this.isCreatorMode || this.isCompleted) return;
+
+        const pos = this.getMousePos(e);
+        this.drawnPath.push(pos);
+
+        // Check if we've passed through the next dot
+        this.checkDotProximity(pos);
+
+        this.draw();
+    }
+
+    handleMouseUp(e) {
+        if (!this.isDrawing) return;
+        this.isDrawing = false;
+    }
+
+    checkDotProximity(pos) {
+        const nextDotIndex = this.connectedDots.length;
+        if (nextDotIndex >= this.dots.length) return;
+
+        const targetDot = this.dots[nextDotIndex];
+        const dist = Math.hypot(pos.x - targetDot.x, pos.y - targetDot.y);
+        const hitRadius = 30; // Slightly larger for freehand
+
+        if (dist < hitRadius) {
+            this.connectedDots.push(nextDotIndex);
+
+            // Completion Check
+            if (this.connectedDots.length === this.dots.length) {
+                this.isCompleted = true;
+                this.isDrawing = false;
+                document.getElementById('completion-overlay').classList.remove('hidden');
+            }
         }
     }
 
@@ -109,30 +166,6 @@ export class Game {
         }
     }
 
-    handleGameClick(pos) {
-        if (this.isCompleted) return;
-
-        const nextDotIndex = this.connectedDots.length; // 0 for first dot (id 1)
-        const targetDot = this.dots[nextDotIndex];
-
-        if (!targetDot) return;
-
-        // Check distance
-        const dist = Math.hypot(pos.x - targetDot.x, pos.y - targetDot.y);
-        const hitRadius = 20; // Tolerance
-
-        if (dist < hitRadius) {
-            this.connectedDots.push(nextDotIndex);
-
-            // Completion Check
-            if (this.connectedDots.length === this.dots.length) {
-                this.isCompleted = true;
-                document.getElementById('completion-overlay').classList.remove('hidden');
-            }
-            this.draw();
-        }
-    }
-
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -142,34 +175,59 @@ export class Game {
         }
 
         // 2. Draw Lines
-        this.ctx.beginPath();
-        this.ctx.lineWidth = 3;
-        this.ctx.strokeStyle = '#4a90e2';
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
+        if (this.isCreatorMode) {
+            // Creator mode: draw lines connecting recorded dots
+            const activeDots = this.recordedDots;
+            if (activeDots.length > 0) {
+                this.ctx.beginPath();
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeStyle = '#4a90e2';
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
 
-        // Choose which dots to draw (Game mode vs Creator mode)
-        const activeDots = this.isCreatorMode ? this.recordedDots : this.dots;
-        const connectedCount = this.isCreatorMode ? activeDots.length : this.connectedDots.length;
+                const firstDot = activeDots[0];
+                this.ctx.moveTo(firstDot.x, firstDot.y);
 
-        if (connectedCount > 0) {
-            const firstDot = activeDots[0];
-            this.ctx.moveTo(firstDot.x, firstDot.y);
+                for (let i = 1; i < activeDots.length; i++) {
+                    const dot = activeDots[i];
+                    this.ctx.lineTo(dot.x, dot.y);
+                }
+                this.ctx.stroke();
+            }
+        } else {
+            // Game mode: draw the user's freehand path
+            if (this.drawnPath.length > 1) {
+                this.ctx.beginPath();
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeStyle = '#4a90e2';
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
 
-            // In game mode, we only draw lines for dots that have been connected
-            // In creator mode, we draw lines for all recorded dots to visualize
-            const limit = this.isCreatorMode ? activeDots.length : this.connectedDots.length;
-
-            for (let i = 1; i < limit; i++) {
-                const dot = activeDots[i];
-                this.ctx.lineTo(dot.x, dot.y);
+                this.ctx.moveTo(this.drawnPath[0].x, this.drawnPath[0].y);
+                for (let i = 1; i < this.drawnPath.length; i++) {
+                    this.ctx.lineTo(this.drawnPath[i].x, this.drawnPath[i].y);
+                }
+                this.ctx.stroke();
             }
 
-            // If completed, connect back to start? (Optional, usually dot-to-dot ends at last number)
-            // But if it's a closed loop shape, typically 1 is connected to N?
-            // For now, simple sequence.
+            // Draw connection lines for successfully connected dots
+            if (this.connectedDots.length > 0) {
+                this.ctx.beginPath();
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeStyle = 'rgba(46, 204, 113, 0.5)';
+                this.ctx.setLineDash([5, 5]);
+
+                const firstDot = this.dots[this.connectedDots[0]];
+                this.ctx.moveTo(firstDot.x, firstDot.y);
+
+                for (let i = 1; i < this.connectedDots.length; i++) {
+                    const dot = this.dots[this.connectedDots[i]];
+                    this.ctx.lineTo(dot.x, dot.y);
+                }
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
+            }
         }
-        this.ctx.stroke();
 
         // 3. Draw Dots (Debug/Interaction Visuals)
         // In a real dot-to-dot, the image HAS the dots. We just overlay our logic.
@@ -179,7 +237,7 @@ export class Game {
         // For Creator Mode, we MUST draw dots so we see them.
         if (this.isCreatorMode) {
             this.ctx.fillStyle = 'red';
-            activeDots.forEach(dot => {
+            this.recordedDots.forEach(dot => {
                 this.ctx.beginPath();
                 this.ctx.arc(dot.x, dot.y, 4, 0, Math.PI * 2);
                 this.ctx.fill();
@@ -187,22 +245,37 @@ export class Game {
                 this.ctx.fillText(dot.id, dot.x + 5, dot.y - 5);
                 this.ctx.fillStyle = 'red';
             });
-        } else if (!this.isCompleted && this.dots.length > 0) {
-            // In game mode, show a subtle highlight for the next dot to click
-            const nextDotIndex = this.connectedDots.length;
-            if (nextDotIndex < this.dots.length) {
-                const nextDot = this.dots[nextDotIndex];
-                this.ctx.strokeStyle = 'rgba(255, 200, 0, 0.6)';
+        } else if (this.dots.length > 0) {
+            // In game mode, show visual feedback for dots
+            // Draw all passed dots in green
+            for (let i = 0; i < this.connectedDots.length; i++) {
+                const dot = this.dots[this.connectedDots[i]];
+                this.ctx.fillStyle = 'rgba(46, 204, 113, 0.7)';
+                this.ctx.beginPath();
+                this.ctx.arc(dot.x, dot.y, 15, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Draw checkmark
+                this.ctx.strokeStyle = 'white';
                 this.ctx.lineWidth = 2;
                 this.ctx.beginPath();
-                this.ctx.arc(nextDot.x, nextDot.y, 25, 0, Math.PI * 2);
+                this.ctx.moveTo(dot.x - 5, dot.y);
+                this.ctx.lineTo(dot.x - 2, dot.y + 4);
+                this.ctx.lineTo(dot.x + 6, dot.y - 4);
                 this.ctx.stroke();
+            }
 
-                // Pulse effect (optional, commented out for now)
-                // this.ctx.strokeStyle = 'rgba(255, 200, 0, 0.3)';
-                // this.ctx.beginPath();
-                // this.ctx.arc(nextDot.x, nextDot.y, 30, 0, Math.PI * 2);
-                // this.ctx.stroke();
+            // Show a highlight for the next dot to pass through
+            if (!this.isCompleted) {
+                const nextDotIndex = this.connectedDots.length;
+                if (nextDotIndex < this.dots.length) {
+                    const nextDot = this.dots[nextDotIndex];
+                    this.ctx.strokeStyle = 'rgba(255, 200, 0, 0.8)';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    this.ctx.arc(nextDot.x, nextDot.y, 25, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                }
             }
         }
     }
